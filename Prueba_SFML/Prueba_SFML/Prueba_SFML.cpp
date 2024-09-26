@@ -23,9 +23,28 @@ public:
     }
 };
 
-void resetGame(std::vector<Ball>& balls, sf::RectangleShape& ship, sf::Clock& gameClock, float& ballSpeedMultiplier, bool& gameOver, float& spawnTimer, float& speedIncreaseInterval) {
-    // Limpiar las bolas
+class Bullet {
+public:
+    sf::RectangleShape shape;
+    float speed;
+
+    Bullet(float startX, float startY) {
+        shape.setSize(sf::Vector2f(10, 20)); // Tamaño del disparo
+        shape.setFillColor(sf::Color::Yellow); // Color amarillo
+        shape.setPosition(startX, startY); // Posición inicial
+        speed = 500.0f; // Velocidad del disparo
+    }
+
+    // Actualizar la posición de la bala (sube)
+    void update(float deltaTime) {
+        shape.move(0, -speed * deltaTime);
+    }
+};
+
+void resetGame(std::vector<Ball>& balls, std::vector<Bullet>& bullets, sf::RectangleShape& ship, sf::Clock& gameClock, float& ballSpeedMultiplier, bool& gameOver, float& spawnTimer, float& speedIncreaseInterval) {
+    // Limpiar las bolas y las balas
     balls.clear();
+    bullets.clear();
 
     // Reiniciar la nave
     ship.setPosition(375, 500); // Posición inicial de la nave
@@ -60,6 +79,9 @@ int main() {
 
     // Crear una lista de bolas grises
     std::vector<Ball> balls;
+
+    // Crear una lista de balas disparadas
+    std::vector<Bullet> bullets;
 
     // Reloj para controlar el tiempo
     sf::Clock clock;
@@ -109,15 +131,15 @@ int main() {
                 if (ship.getPosition().x + ship.getSize().x > window.getSize().x) // Limitar a la ventana
                     ship.setPosition(window.getSize().x - ship.getSize().x, ship.getPosition().y);
             }
-            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Up)) {
-                ship.move(0, -shipSpeed * deltaTime);
-                if (ship.getPosition().y < 0) // Limitar a la ventana
-                    ship.setPosition(ship.getPosition().x, 0);
+
+            // Disparar una bala al presionar la barra espaciadora
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space)) {
+                bullets.push_back(Bullet(ship.getPosition().x + ship.getSize().x / 2 - 5, ship.getPosition().y));
             }
-            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Down)) {
-                ship.move(0, shipSpeed * deltaTime);
-                if (ship.getPosition().y + ship.getSize().y > window.getSize().y) // Limitar a la ventana
-                    ship.setPosition(ship.getPosition().x, window.getSize().y - ship.getSize().y);
+
+            // Actualizar balas
+            for (auto& bullet : bullets) {
+                bullet.update(deltaTime);
             }
 
             // Crear nuevas bolas grises en intervalos regulares
@@ -141,6 +163,18 @@ int main() {
                 ball.update(deltaTime);
             }
 
+            // Comprobar colisiones entre balas y bolas
+            for (size_t i = 0; i < bullets.size(); ++i) {
+                for (size_t j = 0; j < balls.size(); ++j) {
+                    if (bullets[i].shape.getGlobalBounds().intersects(balls[j].shape.getGlobalBounds())) {
+                        // Eliminar la bola y la bala
+                        balls.erase(balls.begin() + j);
+                        bullets.erase(bullets.begin() + i);
+                        break;
+                    }
+                }
+            }
+
             // Comprobar colisiones entre la navecita y las bolas
             for (const auto& ball : balls) {
                 if (ship.getGlobalBounds().intersects(ball.shape.getGlobalBounds())) {
@@ -158,10 +192,14 @@ int main() {
                 window.draw(ball.shape);
             }
 
+            for (const auto& bullet : bullets) {
+                window.draw(bullet.shape);
+            }
+
             window.display();
         }
         else {
-            // Imprimir "Game Over" y el tiempo durado
+            // Imprimir "Game Over" y el tiempo jugado
             window.clear();
 
             sf::Font font;
@@ -178,43 +216,23 @@ int main() {
 
             window.draw(gameOverText);
 
-            // Mostrar el tiempo durado
+            // Mostrar el tiempo jugado
             sf::Text timeText;
             timeText.setFont(font);
             timeText.setString("Time: " + std::to_string(static_cast<int>(survivalTime)) + " seconds");
             timeText.setCharacterSize(30);
             timeText.setFillColor(sf::Color::White);
-            timeText.setPosition(300, 300);
+            timeText.setPosition(250, 300);
 
             window.draw(timeText);
-
-            // Mostrar instrucciones para reiniciar o salir
-            sf::Text restartText;
-            restartText.setFont(font);
-            restartText.setString("Press R to Restart or ESC to Exit");
-            restartText.setCharacterSize(20);
-            restartText.setFillColor(sf::Color::White);
-            restartText.setPosition(250, 400);
-
-            window.draw(restartText);
-
             window.display();
 
-            // Verificar si el jugador quiere reiniciar o salir
-            if (sf::Keyboard::isKeyPressed(sf::Keyboard::R)) {
-                resetGame(balls, ship, gameClock, ballSpeedMultiplier, gameOver, spawnTimer, speedIncreaseInterval);
-            }
-
-            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Escape)) {
-                window.close();
+            // Reiniciar el juego al presionar Enter
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Enter)) {
+                resetGame(balls, bullets, ship, gameClock, ballSpeedMultiplier, gameOver, spawnTimer, speedIncreaseInterval);
             }
         }
     }
 
     return 0;
 }
-
-
-
-
-//C:/Windows/Fonts/arial.ttf
